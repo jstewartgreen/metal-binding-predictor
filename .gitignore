@@ -1,0 +1,32 @@
+# Data directory — large files, not tracked
+/data/
+
+# CIF structure files
+cifs/
+pdb_files
+
+# External repos (downloaded separately)
+LigandMPNN/
+foundry/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# MacOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Claude
+.claude/
