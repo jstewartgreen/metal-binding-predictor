@@ -10,7 +10,6 @@ Examples:
     python train.py --resume --checkpoint data/best_model_v9_zn_softmax.pt
 """
 import argparse
-import os
 import torch
 
 from metal_predictor.constants import BARE_METAL_RESNAMES
@@ -18,7 +17,7 @@ from metal_predictor.data.dataset import (
     build_metal_resname_index,
     cluster_aware_split,
     filter_by_metal_resnames,
-    filter_single_metal,
+    single_metal_resplit,
 )
 from metal_predictor.training.train import run_training
 
@@ -36,9 +35,11 @@ def build_checkpoint_name(args):
         filter_tag = '_sm'
     else:
         filter_tag = ''
-    plm_tag = '_plm' if args.use_plm else ''
-    wta_tag = f'_wta{args.num_hypotheses}' if args.num_hypotheses > 1 else ''
-    return f'data/best_model_v9{filter_tag}_{args.attn_mode}{plm_tag}{wta_tag}.pt'
+    plm_tag  = '_plm' if args.use_plm else ''
+    mpnn_tag = f'_m{args.num_mpnn_rounds}' if args.num_mpnn_rounds != 3 else ''
+    eps_tag  = f'_e{args.eps_wta}' if args.eps_wta > 0.0 else ''
+    wta_tag  = f'_wta{args.num_hypotheses}' if args.num_hypotheses > 1 else ''
+    return f'data/best_model_v9{filter_tag}_{args.attn_mode}{plm_tag}{mpnn_tag}{eps_tag}{wta_tag}.pt'
 
 
 def main():
@@ -60,8 +61,12 @@ def main():
                         help='Attention mechanism (default: softmax)')
     parser.add_argument('--num-hypotheses', type=int, default=1,
                         help='Number of WTA attention heads (default: 1)')
+    parser.add_argument('--num-mpnn-rounds', type=int, default=3,
+                        help='MPNN message-passing rounds; 0 = GNN ablation (default: 3)')
     parser.add_argument('--diversity-weight', type=float, default=0.05,
                         help='Diversity penalty weight for WTA loss (default: 0.05)')
+    parser.add_argument('--eps-wta', type=float, default=0.0,
+                        help='ε-WTA exploration rate: prob of training a random non-winner (default: 0.0)')
     parser.add_argument('--learn-temperature', action='store_true', default=True,
                         help='Learn attention temperature τ (default: True)')
     parser.add_argument('--fixed-temperature', dest='learn_temperature', action='store_false')
@@ -96,26 +101,10 @@ def main():
     print('Loading cluster-aware splits...')
     train_ids, val_ids, test_ids, cluster_to_structures = cluster_aware_split(CLUSTERS)
 
-    if args.metal_filter == 'ZN' or args.metal_filter == 'bare' or args.single_metal_only:
+    if args.metal_filter in ('ZN', 'bare') or args.single_metal_only:
         print('Filtering to single-metal structures...')
-        sm_ids = filter_single_metal(train_ids + val_ids + test_ids, CACHE_DIR)
-        sm_set = set(sm_ids)
-
-        from metal_predictor.data.dataset import MetalBindingDataset
-        # Re-split at cluster level with only single-metal structures
-        import numpy as np
-        sm_cluster_to_structs = {
-            c: [s for s in structs if s in sm_set]
-            for c, structs in cluster_to_structures.items()
-        }
-        sm_cluster_to_structs = {c: s for c, s in sm_cluster_to_structs.items() if s}
-        sm_clusters = list(sm_cluster_to_structs.keys())
-        rng = np.random.default_rng(42)
-        rng.shuffle(sm_clusters)
-        n = len(sm_clusters)
-        train_ids = [s for c in sm_clusters[:int(0.8*n)]           for s in sm_cluster_to_structs[c]]
-        val_ids   = [s for c in sm_clusters[int(0.8*n):int(0.9*n)] for s in sm_cluster_to_structs[c]]
-        test_ids  = [s for c in sm_clusters[int(0.9*n):]           for s in sm_cluster_to_structs[c]]
+        train_ids, val_ids, test_ids = single_metal_resplit(
+            cluster_to_structures, CACHE_DIR)
 
     if args.metal_filter in ('ZN', 'bare'):
         print(f'Building metal res_name index for filter={args.metal_filter}...')
@@ -140,7 +129,9 @@ def main():
         single_metal_only=args.single_metal_only,
         metal_filter=args.metal_filter,
         num_hypotheses=args.num_hypotheses,
+        num_mpnn_rounds=args.num_mpnn_rounds,
         diversity_weight=args.diversity_weight,
+        eps_wta=args.eps_wta,
         learn_temperature=args.learn_temperature,
         temperature=args.temperature,
         use_plm=args.use_plm,

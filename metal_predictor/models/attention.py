@@ -51,13 +51,14 @@ class MetalPredictionHead(nn.Module):
     """
     def __init__(self, node_dim, attn_mode='softmax', top_k=10, res_emb_dim=16,
                  temperature=1.0, learn_temperature=False, use_plm=False, esm_dim=480,
-                 num_hypotheses=1):
+                 num_hypotheses=1, use_node_features=True):
         super().__init__()
-        self.attn_mode      = attn_mode
-        self.top_k          = top_k
-        self.res_emb_dim    = res_emb_dim
-        self.use_plm        = use_plm
-        self.num_hypotheses = num_hypotheses
+        self.attn_mode         = attn_mode
+        self.top_k             = top_k
+        self.res_emb_dim       = res_emb_dim
+        self.use_plm           = use_plm
+        self.use_node_features = use_node_features
+        self.num_hypotheses    = num_hypotheses
 
         log_tau = torch.tensor(float(temperature)).log()
         if learn_temperature:
@@ -67,11 +68,11 @@ class MetalPredictionHead(nn.Module):
 
         if use_plm:
             self.esm_proj = nn.Linear(esm_dim, node_dim)
-            attn_in_dim = node_dim + node_dim
+            attn_in_dim = node_dim + node_dim if use_node_features else node_dim
         else:
             if res_emb_dim > 0:
                 self.res_bypass = nn.Embedding(len(RESIDUES), res_emb_dim)
-            attn_in_dim = node_dim + res_emb_dim
+            attn_in_dim = (node_dim if use_node_features else 0) + res_emb_dim
 
         def _make_mlp():
             return nn.Sequential(
@@ -108,10 +109,11 @@ class MetalPredictionHead(nn.Module):
     def forward(self, x, pos, pos_distal, batch, res_type, return_attn=False, esm=None):
         num_graphs = batch.max().item() + 1
 
-        counts = torch.zeros(num_graphs, dtype=torch.float, device=x.device) \
-                      .scatter_add(0, batch, torch.ones(batch.shape[0], dtype=torch.float, device=x.device))
+        device = pos.device
+        counts = torch.zeros(num_graphs, dtype=torch.float, device=device) \
+                      .scatter_add(0, batch, torch.ones(batch.shape[0], dtype=torch.float, device=device))
 
-        centroid = torch.zeros(num_graphs, 3, device=x.device)
+        centroid = torch.zeros(num_graphs, 3, device=device)
         centroid.scatter_add_(0, batch.unsqueeze(1).expand(-1, 3), pos)
         centroid /= counts.unsqueeze(1)
 
@@ -124,9 +126,11 @@ class MetalPredictionHead(nn.Module):
                     'Run the ESM-2 cache builder cell first, then set '
                     'esm_cache_dir=ESM_CACHE_DIR when constructing the dataset.'
                 )
-            attn_input = torch.cat([x, self.esm_proj(esm)], dim=-1)
+            esm_proj = self.esm_proj(esm)
+            attn_input = torch.cat([x, esm_proj], dim=-1) if self.use_node_features else esm_proj
         elif self.res_emb_dim > 0:
-            attn_input = torch.cat([x, self.res_bypass(res_type)], dim=-1)
+            rb = self.res_bypass(res_type)
+            attn_input = torch.cat([x, rb], dim=-1) if self.use_node_features else rb
         else:
             attn_input = x
 

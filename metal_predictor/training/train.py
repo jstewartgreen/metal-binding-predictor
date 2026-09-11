@@ -10,23 +10,35 @@ from torch_geometric.loader import DataLoader
 
 from metal_predictor.data.augmentation import AugmentedDataset
 from metal_predictor.data.dataset import MetalBindingDataset
+from metal_predictor.data.sampler import BucketBatchSampler
 from metal_predictor.models.model import MetalPredictionModel
 
 RUNS_CSV = 'data/runs.csv'
 
 
-def wta_loss(preds, targets, diversity_weight=0.05):
+def wta_loss(preds, targets, diversity_weight=0.05, eps=0.0):
     """
     Winner-takes-all loss for multi-hypothesis mode.
 
     preds  : (N, K, 3) — K hypotheses per structure
     targets: (N, 3)    — ground-truth metal position (single-metal mode)
+    eps    : probability of assigning gradient to a random non-winning hypothesis
+             instead of the winner (ε-WTA); encourages exploration, helps K>3.
 
     Returns WTA MSE (best hypothesis) + diversity regularization to prevent mode collapse.
     """
     sq_dists = ((preds - targets.unsqueeze(1)) ** 2).sum(-1)   # (N, K)
-    wta = sq_dists.min(dim=1).values.mean()
-    K   = preds.shape[1]
+    K = preds.shape[1]
+
+    if eps > 0.0:
+        winners     = sq_dists.argmin(dim=1)                               # (N,)
+        use_random  = torch.rand(preds.shape[0], device=preds.device) < eps
+        rand_offset = torch.randint(1, K, (preds.shape[0],), device=preds.device)
+        oracle      = torch.where(use_random, (winners + rand_offset) % K, winners)
+        wta = sq_dists.gather(1, oracle.unsqueeze(1)).squeeze(1).mean()
+    else:
+        wta = sq_dists.min(dim=1).values.mean()
+
     div = sum(
         torch.exp(-(preds[:, i] - preds[:, j]).norm(dim=-1)).mean()
         for i in range(K) for j in range(i + 1, K)
@@ -62,18 +74,21 @@ def log_run(phase, checkpoint,
         last_updated=datetime.now().strftime('%Y-%m-%d %H:%M'),
     )
 
+    # Serialize None → 'None' so CSV cells are never blank
+    row_serialized = {k: ('None' if v is None else v) for k, v in row.items()}
+
     if os.path.exists(RUNS_CSV):
         df   = pd.read_csv(RUNS_CSV)
-        mask = df['checkpoint'] == row['checkpoint']
+        mask = df['checkpoint'] == row_serialized['checkpoint']
         if mask.any():
             idx = df.index[mask][0]
-            for col, val in row.items():
-                if val is not None:
+            for col, val in row_serialized.items():
+                if val != 'None':   # don't overwrite existing values with None
                     df.at[idx, col] = val
         else:
-            df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
+            df = pd.concat([df, pd.DataFrame([row_serialized])], ignore_index=True)
     else:
-        df = pd.DataFrame([row])
+        df = pd.DataFrame([row_serialized])
 
     df.to_csv(RUNS_CSV, index=False)
     print(f'[log_run] {phase} → {RUNS_CSV}  ({row["checkpoint"]})')
@@ -87,7 +102,9 @@ def run_training(
     single_metal_only=True,
     metal_filter=None,
     num_hypotheses=1,
+    num_mpnn_rounds=3,
     diversity_weight=0.05,
+    eps_wta=0.0,
     learn_temperature=True,
     temperature=1.0,
     use_plm=False,
@@ -111,8 +128,9 @@ def run_training(
                                    esm_cache_dir=esm_dir, k=k_neighbors)
     val_ds      = MetalBindingDataset(chunk_glob, val_ids, cache_dir=cache_dir,
                                       esm_cache_dir=esm_dir, k=k_neighbors)
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,  num_workers=0)
-    val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False, num_workers=0)
+    train_sampler = BucketBatchSampler(train_ds, batch_size=batch_size)
+    train_loader  = DataLoader(train_ds, batch_sampler=train_sampler, num_workers=0)
+    val_loader    = DataLoader(val_ds,   batch_size=batch_size, shuffle=False, num_workers=0)
 
     model = MetalPredictionModel(
         attn_mode=attn_mode,
@@ -121,6 +139,7 @@ def run_training(
         use_plm=use_plm,
         esm_dim=esm_dim,
         num_hypotheses=num_hypotheses,
+        num_mpnn_rounds=num_mpnn_rounds,
     ).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -182,7 +201,7 @@ def run_training(
                 ])
 
             if num_hypotheses > 1:
-                loss = wta_loss(pred_out, targets, diversity_weight)
+                loss = wta_loss(pred_out, targets, diversity_weight, eps=eps_wta)
             else:
                 loss = F.mse_loss(pred_out, targets)
 
@@ -243,6 +262,8 @@ def run_training(
 
         print(f'Epoch {epoch:3d} | train {train_loss:.4f} | val RMSE {val_rmse:.2f} Å'
               f'{tau_str} | {time.time()-t0:.1f}s{flag}')
+
+
 
     log_run('train', checkpoint,
             attn_mode=attn_mode, metal_filter=metal_filter,

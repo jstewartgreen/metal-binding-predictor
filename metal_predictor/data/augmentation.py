@@ -33,6 +33,8 @@ def augment_data(data: Data) -> Data:
     )
     if hasattr(data, 'esm'):
         augmented.esm = data.esm
+    if hasattr(data, 'closest_residue_idx'):
+        augmented.closest_residue_idx = data.closest_residue_idx
     return augmented
 
 

@@ -67,6 +67,36 @@ def filter_single_metal(ids, cache_dir):
     return result
 
 
+def single_metal_resplit(cluster_to_structures, cache_dir, seed=42):
+    """
+    Re-run the cluster-level split over single-metal structures only.
+
+    Multi-metal structures are dropped and clusters left empty are removed, so the
+    split boundaries land differently than cluster_aware_split(). Every entry point
+    (train.py, evaluate.py, train_classifier.py) must call this rather than filtering
+    the base split, or their train/val/test sets drift apart.
+    """
+    all_ids = [s for structs in cluster_to_structures.values() for s in structs]
+    sm_set  = set(filter_single_metal(all_ids, cache_dir))
+
+    sm_cluster_to_structs = {
+        c: [s for s in structs if s in sm_set]
+        for c, structs in cluster_to_structures.items()
+    }
+    sm_cluster_to_structs = {c: s for c, s in sm_cluster_to_structs.items() if s}
+    sm_clusters = list(sm_cluster_to_structs.keys())
+
+    rng = np.random.default_rng(seed)
+    rng.shuffle(sm_clusters)
+    n = len(sm_clusters)
+
+    train_ids = [s for c in sm_clusters[:int(0.8*n)]           for s in sm_cluster_to_structs[c]]
+    val_ids   = [s for c in sm_clusters[int(0.8*n):int(0.9*n)] for s in sm_cluster_to_structs[c]]
+    test_ids  = [s for c in sm_clusters[int(0.9*n):]           for s in sm_cluster_to_structs[c]]
+
+    return train_ids, val_ids, test_ids
+
+
 def build_metal_resname_index(chunk_glob):
     """Returns {structure_id: set(metal_res_names)} by scanning parquet files."""
     index = {}
@@ -192,6 +222,14 @@ class MetalBindingDataset(Dataset):
                 d.esm = emb
         return d
 
+    def _attach_closest_residue(self, d):
+        if hasattr(d, 'closest_residue_idx'):
+            return d
+        metal_pos = d.y[0].numpy()                                         # (3,)
+        dists = np.linalg.norm(d.pos_distal.numpy() - metal_pos, axis=1)  # (N,)
+        d.closest_residue_idx = torch.tensor(int(dists.argmin()), dtype=torch.long)
+        return d
+
     def __getitem__(self, idx):
         sid        = self.ids[idx]
         cache_path = os.path.join(self.cache_dir, f'{sid}.pt')
@@ -201,6 +239,7 @@ class MetalBindingDataset(Dataset):
             d = self._attach_distal(d, sid)
         else:
             d = self._attach_distal(self._process(idx), sid)
+        d = self._attach_closest_residue(d)
         return self._attach_esm(d, sid)
 
     def build_cache(self):
