@@ -4,6 +4,7 @@ CLI entry point for evaluating a trained MetalPredictionModel on the test set.
 Usage:
     python evaluate.py --checkpoint data/best_model_v9_zn_softmax.pt --metal-filter ZN
     python evaluate.py --checkpoint data/best_model_v9_sm_softmax_plm.pt --use-plm
+    python evaluate.py --baseline --metal-filter ZN      # heuristic baselines only, no model
 """
 import argparse
 import torch
@@ -25,8 +26,8 @@ CLUSTERS   = 'data/clusters/clusters.parquet'
 def main():
     parser = argparse.ArgumentParser(description='Evaluate MetalPredictionModel on test set')
 
-    parser.add_argument('--checkpoint', required=True,
-                        help='Path to model checkpoint (.pt)')
+    parser.add_argument('--checkpoint', default=None,
+                        help='Path to model checkpoint (.pt); optional with --baseline')
     parser.add_argument('--single-metal-only', action='store_true', default=True)
     parser.add_argument('--all-metals', dest='single_metal_only', action='store_false')
     parser.add_argument('--metal-filter', default=None, choices=[None, 'bare', 'ZN'])
@@ -42,9 +43,19 @@ def main():
     parser.add_argument('--no-log', action='store_true', default=False,
                         help='Skip writing results to runs.csv')
     parser.add_argument('--baseline', action='store_true', default=False,
-                        help='Also compute naive CA-centroid prediction as a baseline')
+                        help='Also report the donor-cluster heuristic (the CA-centroid baseline is '
+                             'always reported); with no --checkpoint, run only the baselines')
+    parser.add_argument('--donor-radius', type=float, default=4.0,
+                        help='Donor-donor radius in Å for the donor-cluster heuristic (default: 4.0)')
+    parser.add_argument('--coord-frame', default='absolute',
+                        choices=['absolute', 'residue', 'centroid'],
+                        help='Must match training: frame for atom14 node coords (default: absolute)')
+    parser.add_argument('--relative-coords', action='store_const', const='residue',
+                        dest='coord_frame', help=argparse.SUPPRESS)   # alias for --coord-frame residue
 
     args = parser.parse_args()
+    if args.checkpoint is None and not args.baseline:
+        parser.error('--checkpoint or --baseline is required')
 
     device = torch.device(
         'mps'  if torch.backends.mps.is_available() else
@@ -85,6 +96,8 @@ def main():
         device=device,
         log=not args.no_log,
         baseline=args.baseline,
+        coord_frame=args.coord_frame,
+        donor_radius=args.donor_radius,
     )
 
 

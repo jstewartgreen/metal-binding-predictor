@@ -117,11 +117,13 @@ def filter_by_metal_resnames(ids, metal_index, allowed):
 
 class MetalBindingDataset(Dataset):
     def __init__(self, chunk_glob, structure_ids, k=10,
-                 cache_dir='data/pt_cache_v3', esm_cache_dir=None):
+                 cache_dir='data/pt_cache_v3', esm_cache_dir=None,
+                 coord_frame='absolute'):
         self.k             = k
         self.ids           = list(structure_ids)
         self.cache_dir     = cache_dir
         self.esm_cache_dir = esm_cache_dir
+        self.coord_frame   = coord_frame     # 'absolute' | 'residue' | 'centroid'
 
         self.index = {}
         for fpath in glob.glob(chunk_glob):
@@ -223,11 +225,20 @@ class MetalBindingDataset(Dataset):
         return d
 
     def _attach_closest_residue(self, d):
-        if hasattr(d, 'closest_residue_idx'):
+        if hasattr(d, 'closest_residue_idx') or d.y.shape[0] == 0:   # no metal → nothing to label
             return d
         metal_pos = d.y[0].numpy()                                         # (3,)
         dists = np.linalg.norm(d.pos_distal.numpy() - metal_pos, axis=1)  # (N,)
         d.closest_residue_idx = torch.tensor(int(dists.argmin()), dtype=torch.long)
+        return d
+
+    def _reframe(self, d):
+        """Shift atom14 coords by the residue CA ('residue') or the CA centroid ('centroid');
+        missing (all-zero) slots stay zero. pos / pos_distal / y are left absolute."""
+        x14   = d.x.view(-1, 14, 3)
+        mask  = (x14 == 0).all(-1, keepdim=True)
+        shift = d.pos.unsqueeze(1) if self.coord_frame == 'residue' else d.pos.mean(0)
+        d.x   = torch.where(mask, torch.zeros_like(x14), x14 - shift).reshape(-1, 42)
         return d
 
     def __getitem__(self, idx):
@@ -239,6 +250,8 @@ class MetalBindingDataset(Dataset):
             d = self._attach_distal(d, sid)
         else:
             d = self._attach_distal(self._process(idx), sid)
+        if self.coord_frame != 'absolute':
+            d = self._reframe(d)
         d = self._attach_closest_residue(d)
         return self._attach_esm(d, sid)
 

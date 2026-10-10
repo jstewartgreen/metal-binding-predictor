@@ -30,7 +30,8 @@ def build_checkpoint_name(args):
     else:
         filter_tag = '_sm'
     plm_tag = '_plm' if args.use_plm else ''
-    return f'data/best_model_v9{filter_tag}_{args.attn_mode}{plm_tag}_clf.pt'
+    frame_tag = {'residue': '_rel', 'centroid': '_cen'}.get(args.coord_frame, '')
+    return f'data/best_model_v9{filter_tag}_{args.attn_mode}{plm_tag}{frame_tag}_clf.pt'
 
 
 def main():
@@ -38,6 +39,12 @@ def main():
 
     parser.add_argument('--metal-filter', default='ZN', choices=['bare', 'ZN'])
     parser.add_argument('--k-neighbors', type=int, default=16)
+    parser.add_argument('--coord-frame', default='absolute',
+                        choices=['absolute', 'residue', 'centroid'],
+                        help='Frame for atom14 node coords: absolute crystal frame, relative to each '
+                             'residue CA, or relative to the CA centroid (default: absolute)')
+    parser.add_argument('--relative-coords', action='store_const', const='residue',
+                        dest='coord_frame', help=argparse.SUPPRESS)   # alias for --coord-frame residue
     parser.add_argument('--attn-mode', default='sparsemax',
                         choices=['softmax', 'sparsemax', 'topk'])
     parser.add_argument('--use-plm', action='store_true', default=False)
@@ -94,6 +101,7 @@ def main():
         lr=args.lr,
         grad_clip=args.grad_clip,
         k_neighbors=args.k_neighbors,
+        coord_frame=args.coord_frame,
         resume=args.resume,
         device=device,
     )

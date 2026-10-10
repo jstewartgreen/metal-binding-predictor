@@ -19,14 +19,14 @@ RUNS_CSV = 'data/runs_clf.csv'
 
 def log_clf_run(phase, checkpoint, attn_mode=None, metal_filter=None,
                 use_plm=None, batch_size=None, num_epochs=None, lr=None,
-                k=None, train_size=None, val_size=None,
+                k=None, coord_frame=None, train_size=None, val_size=None,
                 best_epoch=None, best_val_acc=None,
                 test_size=None, test_acc=None):
     row = dict(
         checkpoint=os.path.basename(checkpoint),
         attn_mode=attn_mode, metal_filter=metal_filter,
         use_plm=use_plm, batch_size=batch_size,
-        num_epochs=num_epochs, lr=lr, k=k,
+        num_epochs=num_epochs, lr=lr, k=k, coord_frame=coord_frame,
         train_size=train_size, val_size=val_size,
         best_epoch=best_epoch, best_val_acc=best_val_acc,
         test_size=test_size, test_acc=test_acc,
@@ -86,6 +86,7 @@ def run_classifier_training(
     lr=1e-3,
     grad_clip=1.0,
     k_neighbors=16,
+    coord_frame='absolute',
     resume=False,
     device=None,
 ):
@@ -96,9 +97,11 @@ def run_classifier_training(
     esm_dir = esm_cache_dir if use_plm else None
 
     train_ds      = AugmentedDataset(chunk_glob, train_ids, cache_dir=cache_dir,
-                                     esm_cache_dir=esm_dir, k=k_neighbors)
+                                     esm_cache_dir=esm_dir, k=k_neighbors,
+                                     coord_frame=coord_frame)
     val_ds        = MetalBindingDataset(chunk_glob, val_ids, cache_dir=cache_dir,
-                                        esm_cache_dir=esm_dir, k=k_neighbors)
+                                        esm_cache_dir=esm_dir, k=k_neighbors,
+                                        coord_frame=coord_frame)
     train_sampler = BucketBatchSampler(train_ds, batch_size=batch_size)
     train_loader  = DataLoader(train_ds, batch_sampler=train_sampler, num_workers=0)
     val_loader    = DataLoader(val_ds,   batch_size=batch_size, shuffle=False, num_workers=0)
@@ -205,5 +208,6 @@ def run_classifier_training(
                 attn_mode=attn_mode, metal_filter=metal_filter,
                 use_plm=use_plm, batch_size=batch_size,
                 num_epochs=num_epochs, lr=lr, k=k_neighbors,
+                coord_frame=coord_frame,
                 train_size=len(train_ids), val_size=len(val_ids),
                 best_epoch=best_epoch, best_val_acc=round(best_val_acc, 2))

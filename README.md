@@ -23,6 +23,24 @@ Existing tools either classify coordinating residues (individual amino acids) or
     Taking the His/Cys/Asp/Glu donor atom with the most other-residue donor atoms within 4.0 Å, and predicting the centroid of that cluster, places 88% of zinc sites within 2 Å with no learned parameters. Edge-case placements harm the heuristic's average RMSE across test structures.
 
 
+## Quickstart
+
+```bash
+pip install -r requirements.txt
+mkdir -p data && curl -L -o data/best_model_v9_zn_sparsemax_plm.pt WEIGHTS_URL_PLACEHOLDER
+python predict.py 1VK6 --heuristic
+```
+
+`predict.py` takes a PDB ID (fetched from RCSB) or a local `.cif`/`.pdb` path and prints the predicted metal position in the input file's frame, one `x y z` line; `--heuristic` adds the donor-cluster baseline's prediction on a second line. Any metal ions in the input are excluded from the graph, and if one is present the prediction error against it is reported on stderr. With the default checkpoint (sparsemax + ESM-2) the ESM-2 weights download on first use. Example output for 1VK6, a zinc-containing test-set structure:
+
+```
+73.575 33.526 -11.825
+72.787 33.170 -11.975
+[deposited metal: ZN at 73.453 33.971 -11.728; model error 0.47 Å; heuristic error 1.07 Å]
+```
+
+Model flags (`--attn-mode`, `--use-plm`, `--coord-frame`) are inferred from the checkpoint; pass `--checkpoint data/best_model_v9_zn_sparsemax_rel.pt` for the structure-only residue-frame model.
+
 ## Dataset
 
 The dataset is comprised of structures from the RCSB Protein Data Bank matching a single search (`queries/pdb_query.json`): X-ray diffraction crystallographic structures of metal-containing enzymes with resolution <2.5 Å.
@@ -141,7 +159,6 @@ As shown in Table 1, the greatest proportion of predictions <2 Å were achieved 
 - **Rank candidates instead of regressing coordinates.** The heuristic proposes sites better than the model does. A model that scores the heuristic's candidate clusters would pair the rule's recall with a learned ranker and could fix the wrong-cluster misses.
 - **Coordinate frame and ESM-2 together.** Residue-relative coordinates were the best of the three encodings, but every ESM-2 model was trained on raw crystal coordinates. Combining the two is the obvious next run.
 - **Single runs.** Every configuration was trained once. No variance across seeds is reported, so differences of a few points between rows should not be over-read.
-- **No packaged inference.** There is no standalone command that takes a PDB file and returns a prediction, and no pretrained weights are distributed. Running the model requires the data pipeline below.
 
 ## Reproducing and extending
 

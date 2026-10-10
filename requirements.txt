@@ -1,0 +1,29 @@
+# Pinned from the development environment (Python 3.13.5, macOS arm64).
+#
+# torch_geometric: install torch first, then torch-geometric. PyG wheels are
+# built per torch version and platform, so if the pins below fail on your
+# system follow the official matrix:
+#   https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html
+# This project uses only core PyG (MessagePassing, utils.softmax, DataLoader);
+# the optional torch_scatter / torch_sparse / pyg_lib extensions are not needed.
+
+torch==2.10.0
+torch-geometric==2.7.0
+numpy==2.4.2
+pandas==3.0.1
+scipy==1.17.1
+fastparquet==2025.12.0
+gemmi==0.7.5
+biopython==1.86
+requests==2.32.5
+pytest==9.0.2
+
+# Optional: ESM-2 embeddings (--use-plm). This is the `esm` import from
+# facebookresearch/esm, not the EvolutionaryScale `esm` package.
+fair-esm==2.0.0
+
+# Optional: notebooks and visualization
+ipykernel==7.2.0
+matplotlib==3.10.8
+seaborn==0.13.2
+py3Dmol==2.5.4

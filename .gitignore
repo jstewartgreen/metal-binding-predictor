@@ -30,3 +30,6 @@ build/
 
 # Claude
 .claude/
+
+# Sweep logs
+sweep*.log

@@ -1,0 +1,330 @@
+{
+  "_note": "Zinc test set: 297 structures, 43 MMseqs2 clusters. structure_weighted values are from data/runs.csv where a row exists; cluster_averaged and family_split values are README values computed by a per-cluster analysis whose per-structure error files are not in the repo.",
+  "configurations": {
+    "sparsemax + ESM-2": {
+      "checkpoint": "best_model_v9_zn_sparsemax_plm.pt",
+      "structure_weighted": {
+        "rmse": 7.25,
+        "pct_2a": 52.86,
+        "pct_5a": 68.01,
+        "source": "data/runs.csv"
+      },
+      "cluster_averaged": {
+        "rmse": 12.11,
+        "pct_2a": 24.1,
+        "pct_5a": 48.6,
+        "source": "README value, no file"
+      },
+      "family_split": {
+        "pct_2a_three_largest_families": 74.1,
+        "pct_2a_other_40_families": 22.8,
+        "source": "README value, no file"
+      }
+    },
+    "top-k + ESM-2": {
+      "checkpoint": "best_model_v9_zn_topk_plm.pt",
+      "structure_weighted": {
+        "rmse": 8.42,
+        "pct_2a": 49.49,
+        "pct_5a": 77.44,
+        "source": "data/runs.csv"
+      },
+      "cluster_averaged": {
+        "rmse": 14.2,
+        "pct_2a": 26.6,
+        "pct_5a": 59.0,
+        "source": "README value, no file"
+      },
+      "family_split": {
+        "pct_2a_three_largest_families": 71.8,
+        "pct_2a_other_40_families": 17.9,
+        "source": "README value, no file"
+      }
+    },
+    "softmax + ESM-2": {
+      "checkpoint": "best_model_v9_zn_softmax_plm.pt",
+      "structure_weighted": {
+        "rmse": 7.55,
+        "pct_2a": 33.0,
+        "pct_5a": 67.34,
+        "source": "data/runs.csv"
+      },
+      "cluster_averaged": {
+        "rmse": 12.94,
+        "pct_2a": 22.0,
+        "pct_5a": 50.9,
+        "source": "README value, no file"
+      },
+      "family_split": {
+        "pct_2a_three_largest_families": 48.9,
+        "pct_2a_other_40_families": 10.6,
+        "source": "README value, no file"
+      }
+    },
+    "sparsemax, ESM-2 only": {
+      "checkpoint": "best_model_v9_zn_sparsemax_plm_m0.pt",
+      "structure_weighted": {
+        "rmse": 7.65,
+        "pct_2a": 49.49,
+        "pct_5a": 70.37,
+        "source": "data/runs.csv"
+      },
+      "cluster_averaged": {
+        "rmse": 11.97,
+        "pct_2a": 25.7,
+        "pct_5a": 53.1,
+        "source": "README value, no file"
+      },
+      "family_split": {
+        "pct_2a_three_largest_families": 74.7,
+        "pct_2a_other_40_families": 13.8,
+        "source": "README value, no file"
+      }
+    },
+    "top-k, ESM-2 only": {
+      "checkpoint": "best_model_v9_zn_topk_plm_m0.pt",
+      "structure_weighted": {
+        "rmse": 10.75,
+        "pct_2a": 57.24,
+        "pct_5a": 71.72,
+        "source": "data/runs.csv"
+      },
+      "cluster_averaged": {
+        "rmse": 14.86,
+        "pct_2a": 38.8,
+        "pct_5a": 58.7,
+        "source": "README value, no file"
+      },
+      "family_split": {
+        "pct_2a_three_largest_families": 71.8,
+        "pct_2a_other_40_families": 36.6,
+        "source": "README value, no file"
+      }
+    },
+    "softmax, ESM-2 only": {
+      "checkpoint": "best_model_v9_zn_softmax_plm_m0.pt",
+      "structure_weighted": {
+        "rmse": 7.39,
+        "pct_2a": 54.55,
+        "pct_5a": 76.09,
+        "source": "data/runs.csv"
+      },
+      "cluster_averaged": {
+        "rmse": 13.42,
+        "pct_2a": 35.0,
+        "pct_5a": 55.8,
+        "source": "README value, no file"
+      },
+      "family_split": {
+        "pct_2a_three_largest_families": 74.1,
+        "pct_2a_other_40_families": 26.8,
+        "source": "README value, no file"
+      }
+    },
+    "sparsemax, residue frame": {
+      "checkpoint": "best_model_v9_zn_sparsemax_rel.pt",
+      "structure_weighted": {
+        "rmse": 12.17,
+        "pct_2a": 37.04,
+        "pct_5a": 53.87,
+        "source": "data/runs.csv"
+      },
+      "cluster_averaged": {
+        "rmse": 12.43,
+        "pct_2a": 34.7,
+        "pct_5a": 47.4,
+        "source": "README value, no file"
+      },
+      "family_split": {
+        "pct_2a_three_largest_families": 38.5,
+        "pct_2a_other_40_families": 35.0,
+        "source": "README value, no file"
+      }
+    },
+    "top-k, residue frame": {
+      "checkpoint": "best_model_v9_zn_topk_rel.pt",
+      "structure_weighted": {
+        "rmse": 11.44,
+        "pct_2a": 21.21,
+        "pct_5a": 50.17,
+        "source": "data/runs.csv"
+      },
+      "cluster_averaged": {
+        "rmse": 12.63,
+        "pct_2a": 12.6,
+        "pct_5a": 40.6,
+        "source": "README value, no file"
+      },
+      "family_split": {
+        "pct_2a_three_largest_families": 29.9,
+        "pct_2a_other_40_families": 8.9,
+        "source": "README value, no file"
+      }
+    },
+    "softmax, residue frame": {
+      "checkpoint": "best_model_v9_zn_softmax_rel.pt",
+      "structure_weighted": {
+        "rmse": 15.41,
+        "pct_2a": 16.5,
+        "pct_5a": 47.14,
+        "source": "data/runs.csv"
+      },
+      "cluster_averaged": {
+        "rmse": 13.96,
+        "pct_2a": 24.0,
+        "pct_5a": 40.9,
+        "source": "README value, no file"
+      },
+      "family_split": {
+        "pct_2a_three_largest_families": 9.2,
+        "pct_2a_other_40_families": 26.8,
+        "source": "README value, no file"
+      }
+    },
+    "top-k, absolute frame": {
+      "checkpoint": "best_model_v9_zn_topk.pt",
+      "structure_weighted": {
+        "rmse": 12.38,
+        "pct_2a": 28.96,
+        "pct_5a": 39.73,
+        "source": "data/runs.csv"
+      },
+      "cluster_averaged": {
+        "rmse": 13.07,
+        "pct_2a": 25.9,
+        "pct_5a": 42.7,
+        "source": "README value, no file"
+      },
+      "family_split": {
+        "pct_2a_three_largest_families": 29.3,
+        "pct_2a_other_40_families": 28.5,
+        "source": "README value, no file"
+      }
+    },
+    "softmax, absolute frame": {
+      "checkpoint": "best_model_v9_zn_softmax.pt",
+      "structure_weighted": {
+        "rmse": 12.64,
+        "pct_2a": 13.13,
+        "pct_5a": 46.46,
+        "source": "data/runs.csv"
+      },
+      "cluster_averaged": {
+        "rmse": 13.29,
+        "pct_2a": 13.8,
+        "pct_5a": 37.2,
+        "source": "README value, no file"
+      },
+      "family_split": {
+        "pct_2a_three_largest_families": 13.2,
+        "pct_2a_other_40_families": 13.0,
+        "source": "README value, no file"
+      }
+    },
+    "sparsemax, absolute frame": {
+      "checkpoint": "best_model_v9_zn_sparsemax.pt",
+      "structure_weighted": {
+        "rmse": 15.58,
+        "pct_2a": 17.17,
+        "pct_5a": 27.61,
+        "source": "data/runs.csv"
+      },
+      "cluster_averaged": {
+        "rmse": 14.2,
+        "pct_2a": 12.9,
+        "pct_5a": 30.2,
+        "source": "README value, no file"
+      },
+      "family_split": {
+        "pct_2a_three_largest_families": 20.7,
+        "pct_2a_other_40_families": 12.2,
+        "source": "README value, no file"
+      }
+    },
+    "top-k, centroid frame": {
+      "checkpoint": "best_model_v9_zn_topk_cen.pt",
+      "structure_weighted": {
+        "rmse": 17.38,
+        "pct_2a": 9.76,
+        "pct_5a": 38.05,
+        "source": "data/runs.csv"
+      },
+      "cluster_averaged": {
+        "rmse": 19.05,
+        "pct_2a": 4.2,
+        "pct_5a": 25.6,
+        "source": "README value, no file"
+      }
+    },
+    "softmax, centroid frame": {
+      "checkpoint": "best_model_v9_zn_softmax_cen.pt",
+      "structure_weighted": {
+        "rmse": 13.59,
+        "pct_2a": 8.42,
+        "pct_5a": 22.9,
+        "source": "data/runs.csv"
+      },
+      "cluster_averaged": {
+        "rmse": 14.15,
+        "pct_2a": 3.8,
+        "pct_5a": 23.8,
+        "source": "README value, no file"
+      }
+    },
+    "sparsemax, centroid frame": {
+      "checkpoint": "best_model_v9_zn_sparsemax_cen.pt",
+      "structure_weighted": {
+        "rmse": 15.02,
+        "pct_2a": 9.43,
+        "pct_5a": 19.87,
+        "source": "data/runs.csv"
+      },
+      "cluster_averaged": {
+        "rmse": 14.54,
+        "pct_2a": 5.3,
+        "pct_5a": 19.6,
+        "source": "README value, no file"
+      }
+    },
+    "donor-cluster heuristic (r = 4.0 \u00c5)": {
+      "checkpoint": "heuristic_donor_r4_ZN",
+      "structure_weighted": {
+        "rmse": 8.51,
+        "pct_2a": 88.22,
+        "pct_5a": 90.24,
+        "source": "data/runs.csv"
+      },
+      "cluster_averaged": {
+        "rmse": 13.83,
+        "pct_2a": 69.7,
+        "pct_5a": 78.1,
+        "source": "README value, no file"
+      },
+      "family_split": {
+        "pct_2a_three_largest_families": 93.1,
+        "pct_2a_other_40_families": 81.3,
+        "source": "README value, no file"
+      }
+    },
+    "CA-centroid baseline": {
+      "checkpoint": null,
+      "structure_weighted": {
+        "rmse": 17.21,
+        "pct_2a": 7.1,
+        "pct_5a": 28.6,
+        "source": "rmse: data/runs.csv test_centroid_rmse; pct_2a/pct_5a: README value, no file"
+      },
+      "cluster_averaged": {
+        "rmse": 18.54,
+        "pct_2a": 1.1,
+        "pct_5a": 9.9,
+        "source": "README value, no file"
+      },
+      "family_split": {
+        "pct_2a_three_largest_families": 12.1,
+        "pct_2a_other_40_families": 0.0,
+        "source": "README value, no file"
+      }
+    }
+  }
+}

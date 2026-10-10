@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.loader import DataLoader
+from torch_geometric.nn import global_mean_pool
 
 from metal_predictor.data.augmentation import AugmentedDataset
 from metal_predictor.data.dataset import MetalBindingDataset
@@ -50,6 +51,7 @@ def log_run(phase, checkpoint,
             attn_mode=None, metal_filter=None, num_hypotheses=None,
             diversity_weight=None, learn_temperature=None, use_plm=None,
             batch_size=None, num_epochs=None, lr=None, grad_clip=None, k=None,
+            coord_frame=None, val_centroid_rmse=None, test_centroid_rmse=None,
             train_size=None, val_size=None,
             best_epoch=None, best_train_loss=None, best_val_rmse=None,
             test_size=None, test_rmse=None, test_mean=None, test_median=None,
@@ -64,11 +66,11 @@ def log_run(phase, checkpoint,
         num_hypotheses=num_hypotheses, diversity_weight=diversity_weight,
         learn_temperature=learn_temperature, use_plm=use_plm,
         batch_size=batch_size, num_epochs=num_epochs, lr=lr,
-        grad_clip=grad_clip, k=k,
+        grad_clip=grad_clip, k=k, coord_frame=coord_frame,
         train_size=train_size, val_size=val_size,
         best_epoch=best_epoch, best_train_loss=best_train_loss,
-        best_val_rmse=best_val_rmse,
-        test_size=test_size, test_rmse=test_rmse,
+        best_val_rmse=best_val_rmse, val_centroid_rmse=val_centroid_rmse,
+        test_size=test_size, test_rmse=test_rmse, test_centroid_rmse=test_centroid_rmse,
         test_mean=test_mean, test_median=test_median,
         test_pct_2a=test_pct_2a, test_pct_5a=test_pct_5a,
         last_updated=datetime.now().strftime('%Y-%m-%d %H:%M'),
@@ -115,6 +117,7 @@ def run_training(
     lr=1e-3,
     grad_clip=1.0,
     k_neighbors=16,
+    coord_frame='absolute',
     resume=False,
     device=None,
 ):
@@ -125,9 +128,11 @@ def run_training(
     esm_dir = esm_cache_dir if use_plm else None
 
     train_ds    = AugmentedDataset(chunk_glob, train_ids, cache_dir=cache_dir,
-                                   esm_cache_dir=esm_dir, k=k_neighbors)
+                                   esm_cache_dir=esm_dir, k=k_neighbors,
+                                   coord_frame=coord_frame)
     val_ds      = MetalBindingDataset(chunk_glob, val_ids, cache_dir=cache_dir,
-                                      esm_cache_dir=esm_dir, k=k_neighbors)
+                                      esm_cache_dir=esm_dir, k=k_neighbors,
+                                      coord_frame=coord_frame)
     train_sampler = BucketBatchSampler(train_ds, batch_size=batch_size)
     train_loader  = DataLoader(train_ds, batch_sampler=train_sampler, num_workers=0)
     val_loader    = DataLoader(val_ds,   batch_size=batch_size, shuffle=False, num_workers=0)
@@ -177,6 +182,17 @@ def run_training(
         print('Fresh start with zero-init attention head(s)')
 
     is_filtered = single_metal_only or metal_filter is not None
+
+    # Naive baseline: predict the CA centroid. Val is not augmented, so this is constant.
+    val_centroid_sq = []
+    for batch in val_loader:
+        c       = global_mean_pool(batch.pos, batch.batch)
+        y_split = torch.split(batch.y, batch.num_metals.tolist())
+        val_centroid_sq.append(torch.stack([
+            torch.norm(c[i] - metals, dim=-1).min() for i, metals in enumerate(y_split)
+        ]).pow(2))
+    val_centroid_rmse = torch.cat(val_centroid_sq).mean().sqrt().item()
+    print(f'Val CA-centroid RMSE: {val_centroid_rmse:.2f} Å (naive baseline)')
 
     for epoch in range(start_epoch, num_epochs + 1):
         model.train()
@@ -271,10 +287,11 @@ def run_training(
             diversity_weight=diversity_weight if num_hypotheses > 1 else None,
             learn_temperature=learn_temperature, use_plm=use_plm,
             batch_size=batch_size, num_epochs=num_epochs, lr=lr,
-            grad_clip=grad_clip, k=k_neighbors,
+            grad_clip=grad_clip, k=k_neighbors, coord_frame=coord_frame,
             train_size=len(train_ids), val_size=len(val_ids),
             best_epoch=best_epoch,
             best_train_loss=round(best_train_loss_snap, 4),
-            best_val_rmse=round(best_val_loss, 4))
+            best_val_rmse=round(best_val_loss, 4),
+            val_centroid_rmse=round(val_centroid_rmse, 4))
 
     return model, best_val_loss
