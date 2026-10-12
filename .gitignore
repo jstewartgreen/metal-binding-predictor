@@ -33,3 +33,4 @@ build/
 
 # Sweep logs
 sweep*.log
+CLAUDE.md
